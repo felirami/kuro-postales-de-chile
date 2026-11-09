@@ -352,6 +352,11 @@ function bridgeOnPath(nextX, nextDepth) {
   if (nextDepth <= game.clientHeight * .10) {
     return centerX >= game.clientWidth * .35 + 8 && centerX <= game.clientWidth * .76 - 8;
   }
+  // Keep the visible entrance clear of tiny holes in the generated shore mask.
+  if (nextDepth <= game.clientHeight * .57 &&
+    centerX >= game.clientWidth * .40 && centerX <= game.clientWidth * .62) return true;
+  if (nextDepth > game.clientHeight * .57 && nextDepth <= game.clientHeight * .98 &&
+    centerX >= game.clientWidth * .38 && centerX <= game.clientWidth * .45) return true;
   if (bridgeMudLearned && bridgeInMud(centerX, nextDepth)) return false;
   const logCenterX = game.clientWidth * 1.05;
   const closeToLog = Math.abs(centerX - logCenterX) <= 20;
@@ -1894,7 +1899,7 @@ function changeLocation(nextLocation, entry = 'default') {
     else if (atStation) x = entry === 'at-estafeta' ? game.clientWidth * 0.23 : entry === 'at-train' ? game.clientWidth * 0.58 : entry === 'from-route' ? game.clientWidth - 150 : 120;
     else if (atValparaiso) x = entry === 'at-train' ? 95 : entry === 'from-map' ? game.clientWidth * 0.24 : entry === 'at-tizne' ? game.clientWidth * 1.34 : entry === 'at-hills' ? game.clientWidth * 1.60 : entry === 'at-lower-hills' ? game.clientWidth * 2.07 : entry === 'at-mid-hills' ? game.clientWidth * 2.44 : entry === 'at-bruma' ? game.clientWidth * 2.62 : entry === 'at-cave' ? game.clientWidth * 3.12 : entry === 'at-connector' ? game.clientWidth * 0.82 : entry === 'at-station-seam' ? game.clientWidth * 0.56 : entry === 'at-plaza-seam' ? game.clientWidth * 1.12 : 160;
     else if (atValdivia) x = entry === 'at-coipo' ? valdiviaCopo.offsetLeft + valdiviaCopo.offsetWidth / 2 - 110 : entry === 'at-pier' ? game.clientWidth * 1.83 : entry === 'at-market' ? game.clientWidth * 2.32 : entry === 'at-vendor' ? valdiviaVendorCenter() - 125 : entry === 'at-passage' ? game.clientWidth * 2.82 : entry === 'at-island' ? game.clientWidth * 3.63 : game.clientWidth * 0.22;
-    else if (atBridge) x = entry === 'at-log' ? game.clientWidth * 1.05 - 50 : entry === 'at-mud' ? game.clientWidth * 1.45 - 50 : entry === 'at-refuge' ? game.clientWidth * 1.56 - 50 : entry === 'from-island' ? game.clientWidth * 1.54 - 50 : game.clientWidth * .50 - 50;
+    else if (atBridge) x = entry === 'at-log' ? game.clientWidth * 1.05 - 50 : entry === 'at-mud' ? game.clientWidth * 1.45 - 50 : entry === 'at-refuge' ? game.clientWidth * 1.56 - 50 : entry === 'from-island' ? game.clientWidth * 1.54 - 50 : game.clientWidth * .42 - 50;
     else if (atCave) x = entry === 'at-goat' ? game.clientWidth * (caveBellCollected ? 3.08 : 2.72) : entry === 'at-sea-lion' ? game.clientWidth * 4.65 : entry === 'at-dog' ? game.clientWidth * 1.05 : entry === 'at-middle' ? game.clientWidth * 3.75 : entry === 'at-bird' ? game.clientWidth * .54 : entry === 'at-bell' ? game.clientWidth * 5.67 : 185;
     else x = entry === 'from-quinta' ? game.clientWidth * 1.6875 - 150 : entry === 'from-museum' ? game.clientWidth * 1.29 : entry === 'at-museum' ? game.clientWidth * 1.40 : entry === 'at-quinta' ? game.clientWidth * 1.20 : entry === 'at-mota' ? game.clientWidth * 0.36 : entry === 'at-plaza' ? game.clientWidth * 0.86 : entry === 'at-neighborhood' ? game.clientWidth * 0.46 : entry === 'at-seam' ? game.clientWidth * 0.90 : game.clientWidth * 0.14;
     if (atValdivia || atBridge) {
