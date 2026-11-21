@@ -1199,10 +1199,30 @@ button.gameplay-label:active { --label-fill: var(--label-active, linear-gradient
   background: url('assets/kuro-vagon-mapochovalpo-v1.webp') center / 100% 100% no-repeat;
   animation: train-cabin-rock .74s ease-in-out infinite alternate;
 }
+.train-ride.is-returning .train-window { inset-inline: 6% 25%; }
+.train-ride.is-returning .train-cabin-view { scale: -1 1; }
+.train-ride.is-returning .train-coast { opacity: 1; animation: train-coast-departure 4.43s linear both; }
+.train-ride.is-returning :is(.train-waterfront, .train-neighborhood, .train-approach) {
+  animation-direction: normal, reverse;
+}
+.train-ride.is-returning .train-waterfront { z-index: 1; animation-delay: 1.05s, 0s; }
+.train-ride.is-returning .train-neighborhood { z-index: 2; animation-delay: 2.12s, 0s; }
+.train-ride.is-returning .train-approach { z-index: 3; animation-delay: 3.2s, 0s; }
+.train-ride.is-returning .train-countryside {
+  z-index: 4;
+  opacity: 0;
+  animation-direction: reverse;
+  transition: opacity .45s ease-in-out;
+}
+.train-ride.is-returning.is-arriving .train-countryside { opacity: 1; }
+.train-ride.is-returning .train-trackside { z-index: 5; }
+.train-ride.is-returning .train-trackside::before,
+.train-ride.is-returning .train-trackside::after { animation-direction: reverse; }
 @keyframes train-ride-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes train-ride-out { from { opacity: 1; } to { opacity: 0; } }
 @keyframes train-approach-reveal { from { opacity: 0; } to { opacity: 1; } }
 @keyframes train-landscape-pan { to { background-position: 92% 54%; } }
+@keyframes train-coast-departure { to { background-position: 16% 62%; } }
 @keyframes train-pole-pass {
   0%, 22% { transform: none; }
   100% { transform: translateX(calc(-100cqw - 100%)); }
@@ -1214,6 +1234,7 @@ button.gameplay-label:active { --label-fill: var(--label-active, linear-gradient
 @media (prefers-reduced-motion: reduce) {
   .train-countryside, .train-trackside, .train-cabin-view { animation: none; }
   .train-approach, .train-neighborhood, .train-waterfront { animation-name: train-approach-reveal; }
+  .train-ride.is-returning .train-coast { animation: none; }
   .train-trackside { display: none; }
 }
 @media (max-width: 760px) {

@@ -1887,20 +1887,23 @@ function prepareTrainRide() {
   });
 }
 
-async function rideToValparaiso() {
+async function rideByTrain(destination) {
   if (!trainRide.hidden || transitioning) return;
+  const returning = destination === 'station';
   prepareTrainRide();
   keys.clear();
+  trainRide.classList.toggle('is-returning', returning);
+  trainRide.setAttribute('aria-label', `Kuro mira por la ventana del tren a ${returning ? 'Santiago' : 'Valparaíso'}`);
   trainRide.hidden = false;
   trainWheels.currentTime = 0;
   trainWheels.play().catch(() => {});
 
   const destinationReady = new Promise(resolve => {
     const timeout = setTimeout(resolve, 8000);
-    preloadTrainImages([
-      'assets/valparaiso-continuo-pixel-v1.png',
-      'assets/valparaiso-cerro-cueva-pixel-v1.png'
-    ]).then(() => {
+    const images = returning
+      ? ['assets/estacion-mapocho-unificada-v1.png', 'assets/estafeta-gatuna-frontal-v2.png']
+      : ['assets/valparaiso-continuo-pixel-v1.png', 'assets/valparaiso-cerro-cueva-pixel-v1.png'];
+    preloadTrainImages(images).then(() => {
       clearTimeout(timeout);
       resolve();
     });
@@ -1910,9 +1913,9 @@ async function rideToValparaiso() {
   await new Promise(resolve => setTimeout(resolve, 1000));
 
   trainRide.classList.add('is-leaving');
-  changeLocation('valparaiso', 'from-map', null, () => {
+  changeLocation(destination, returning ? 'from-route' : 'from-map', null, () => {
     trainRide.hidden = true;
-    trainRide.classList.remove('is-arriving', 'is-leaving');
+    trainRide.classList.remove('is-arriving', 'is-leaving', 'is-returning');
     trainWheels.pause();
   });
 }
@@ -1969,7 +1972,7 @@ mapZoneTravel.addEventListener('click', () => {
   const destination = selectedMapZone;
   closeWorldMap(false);
   game.focus();
-  if (currentPlace === 'station' && destination === 'valparaiso') rideToValparaiso();
+  if (currentPlace === 'station' && destination === 'valparaiso') rideByTrain('valparaiso');
   else if (destination === 'valparaiso' || destination === 'valdivia') changeLocation(destination, 'from-map');
 });
 mapZoneNodes.forEach((node) => {
@@ -1982,7 +1985,8 @@ worldMap.querySelectorAll('[data-travel]').forEach((button) => {
     closeWorldMap(false);
     game.focus();
     if (destination === 'santiago') {
-      if (currentPlace === 'valparaiso' || currentPlace === 'valdivia') changeLocation('station', 'from-route');
+      if (currentPlace === 'valparaiso') rideByTrain('station');
+      else if (currentPlace === 'valdivia') changeLocation('station', 'from-route');
       else changeLocation('street');
     }
   });
@@ -2223,7 +2227,7 @@ function changeLocation(nextLocation, entry = 'default', checkpoint = null, onAr
       }
     }
     if (atBridge) renderBridgePath();
-    if (atStation) prepareTrainRide();
+    if (atStation || atValparaiso) prepareTrainRide();
     cameraLookAhead = 0;
     dialogue.hidden = true;
     scene.classList.remove('window-gazing');
