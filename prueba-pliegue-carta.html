@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Estafeta Gatuna · Kuro</title>
+</head>
+<body>
+  <a href="index.html?preview=station&at=estafeta&letter=unsent">Abrir la Estafeta en Kuro</a>
+  <script>
+    const target = new URL('index.html?preview=station&at=estafeta&letter=unsent', location.href);
+    const previous = new URLSearchParams(location.search);
+    for (const item of ['postcard', 'photo']) {
+      if (previous.get(item) === 'collected') target.searchParams.set(item, 'collected');
+    }
+    location.replace(target);
+  </script>
+</body>
+</html>

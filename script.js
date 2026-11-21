@@ -100,9 +100,27 @@ const valparaisoPostscript = document.querySelector('#valparaiso-postscript');
 const albumPageNumber = document.querySelector('#album-page-number');
 const albumPrev = document.querySelector('#album-prev');
 const albumNext = document.querySelector('#album-next');
+const albumClose = document.querySelector('#album-close');
+const albumTurnSheet = document.querySelector('#album-turn-sheet');
+const albumTurnReveal = document.querySelector('#album-turn-reveal');
 const photoMoment = document.querySelector('#photo-moment');
+const mailComposer = document.querySelector('#mail-composer');
+const mailPaperPosition = mailComposer.querySelector('.mail-paper-position');
+const mailPaper = mailComposer.querySelector('.mail-paper');
+const mailCopy = mailComposer.querySelector('.mail-copy');
+const mailPostscript = mailComposer.querySelector('.mail-postscript');
+const mailAttachments = mailComposer.querySelector('.mail-attachments');
+const mailPostcard = mailComposer.querySelector('.mail-attachment-postcard');
+const mailPhoto = mailComposer.querySelector('.mail-attachment-photo');
+const mailSend = mailComposer.querySelector('.mail-send');
+const mailClose = mailComposer.querySelector('.mail-close');
+const mailImprint = mailComposer.querySelector('.mail-imprint');
+const mailFolds = mailComposer.querySelector('.mail-folds');
+const letterSlot = document.querySelector('.letter-slot');
 const shutterFlash = document.querySelector('#shutter-flash');
 const worldMap = document.querySelector('#world-map');
+const trainRide = document.querySelector('#train-ride');
+const trainWheels = document.querySelector('#train-wheels');
 const worldMapClose = document.querySelector('#world-map-close');
 const santiagoMapStatus = document.querySelector('#santiago-map-status');
 const mapZoneStamp = document.querySelector('#map-zone-stamp');
@@ -179,21 +197,21 @@ let dialogueChoiceActive = false;
 let selectedTizneChoice = 0;
 let motaConversationComplete = false;
 let tizneConversationComplete = false;
-let whalePostcardCollected = localStorage.getItem('kuro-whale-postcard') === 'collected';
-let quintaPhotoCollected = localStorage.getItem('kuro-quinta-photo') === 'collected';
-let bridgePostcardCollected = localStorage.getItem('kuro-bridge-postcard-v1') === 'collected';
-let firstLetterSent = localStorage.getItem('kuro-first-letter') === 'sent';
-let returnedFromValparaiso = localStorage.getItem('kuro-returned-from-valparaiso') === 'yes';
-let grandmotherReplyRead = localStorage.getItem('kuro-grandmother-reply') === 'read';
-let caveBellCollected = localStorage.getItem('kuro-cave-bell') === 'collected';
-let brumaBellReturned = localStorage.getItem('kuro-bruma-bell-returned') === 'returned';
-let brumaMet = localStorage.getItem('kuro-bruma-met') === 'met';
-let tizneResponse = localStorage.getItem('kuro-tizne-response');
-let valdiviaTracksFound = localStorage.getItem('kuro-valdivia-tracks-v1') === 'found';
-let valdiviaPassageFound = localStorage.getItem('kuro-valdivia-passage-v1') === 'found';
-let valdiviaBridgeCrossed = localStorage.getItem('kuro-valdivia-bridge-v1') === 'crossed';
-let valdiviaFamilyHelped = localStorage.getItem('kuro-valdivia-family-v1') === 'helped';
-let copoFollowing = localStorage.getItem('kuro-valdivia-copo-following-v1') === 'yes' || valdiviaTracksFound;
+let whalePostcardCollected = false;
+let quintaPhotoCollected = false;
+let bridgePostcardCollected = false;
+let firstLetterSent = false;
+let returnedFromValparaiso = false;
+let grandmotherReplyRead = false;
+let caveBellCollected = false;
+let brumaBellReturned = false;
+let brumaMet = false;
+let tizneResponse = null;
+let valdiviaTracksFound = false;
+let valdiviaPassageFound = false;
+let valdiviaBridgeCrossed = false;
+let valdiviaFamilyHelped = false;
+let copoFollowing = false;
 let copoWorldX = null;
 let copoChasing = false;
 let copoFacing = 1;
@@ -208,8 +226,11 @@ let sittingInChair = false;
 let sittingOnBench = null;
 let autoEscapingCave = false;
 let albumPageIndex = 0;
+let albumTurnFrame = null;
+let albumOpenedFromItems = false;
 let selectedMapZone = 'santiago';
 let selectedLocalDestination = -1;
+let mapOpenedFromMenu = false;
 let seaLionAttackPhase = 'idle';
 let seaLionPhaseUntil = 0;
 let nextSeaLionAttackAt = performance.now() + 1400;
@@ -338,6 +359,7 @@ function advanceBridgeLog(amount, fromTap = false) {
   if (bridgeLogProgress === 1) {
     bridgeLogPlaced = true;
     scene.classList.add('bridge-log-placed');
+    saveAfterMilestone();
   }
 }
 function bridgeTop() { return game.clientHeight * 6.05; }
@@ -675,7 +697,7 @@ function collectCaveBell() {
   if (caveBellCollected) return;
   awakenBell();
   caveBellCollected = true;
-  localStorage.setItem('kuro-cave-bell', 'collected');
+  saveAfterMilestone();
   scene.classList.add('cave-bell-collected');
   game.classList.add('cave-return');
   caveClaw.hidden = true;
@@ -908,7 +930,8 @@ function updatePackChase(time, dt) {
   }
   if (caveBellCollected) {
     if (packActive || packChaseComplete) resetPackChase();
-    const dogEyeOffset = Math.max(-2, Math.min(2, (x + 50 - (dogX + 95)) / 95 * 2));
+    const restingDogEyeX = sootDog.offsetLeft + sootDog.offsetWidth * .87;
+    const dogEyeOffset = Math.max(-2, Math.min(2, (x + 50 - restingDogEyeX) / 95 * 2));
     sootDog.style.setProperty('--dog-eye-x', `${dogEyeOffset.toFixed(1)}px`);
     return;
   }
@@ -1441,7 +1464,7 @@ function confirmTizneChoice(choiceId = dialogueChoiceButtons[selectedTizneChoice
   const response = tizneResponses[choiceId];
   if (!response) return;
   tizneResponse = choiceId;
-  localStorage.setItem('kuro-tizne-response', choiceId);
+  saveAfterMilestone();
   scene.classList.add('valparaiso-complete');
   renderAlbum();
   startDialogue([
@@ -1486,9 +1509,8 @@ function talkToBruma() {
     ];
     startDialogue(reunion, () => {
       brumaMet = true;
-      localStorage.setItem('kuro-bruma-met', 'met');
       brumaBellReturned = true;
-      localStorage.setItem('kuro-bruma-bell-returned', 'returned');
+      saveAfterMilestone();
       dialogue.hidden = true;
     });
   } else {
@@ -1498,19 +1520,28 @@ function talkToBruma() {
       ['Kuro', 'Si lo encuentro, se lo traeré.']
     ], () => {
       brumaMet = true;
-      localStorage.setItem('kuro-bruma-met', 'met');
+      saveAfterMilestone();
       dialogue.hidden = true;
     });
   }
 }
 
-function renderAlbum(focusPage = null) {
+function albumProgress() {
+  return { whalePostcardCollected, quintaPhotoCollected, tizneResponse, bridgePostcardCollected, valdiviaFamilyHelped };
+}
+
+function unlockedAlbumPages(progress = albumProgress()) {
   const pages = [];
-  if (whalePostcardCollected) pages.push({ element: whaleAlbumPage, number: 'Santiago · 01' });
-  if (quintaPhotoCollected) pages.push({ element: quintaPhotoPage, number: 'Santiago · 02' });
-  if (tizneResponse) pages.push({ element: valparaisoAlbumPage, number: 'Valparaíso · 01' });
-  if (bridgePostcardCollected) pages.push({ element: bridgeAlbumPage, number: 'Valdivia · ★' });
-  if (valdiviaFamilyHelped) pages.push({ element: valdiviaAlbumPage, number: 'Valdivia · 01' });
+  if (progress.whalePostcardCollected) pages.push({ element: whaleAlbumPage, number: 'Santiago · 01' });
+  if (progress.quintaPhotoCollected) pages.push({ element: quintaPhotoPage, number: 'Santiago · 02' });
+  if (progress.tizneResponse) pages.push({ element: valparaisoAlbumPage, number: 'Valparaíso · 01' });
+  if (progress.bridgePostcardCollected) pages.push({ element: bridgeAlbumPage, number: 'Valdivia · ★' });
+  if (progress.valdiviaFamilyHelped) pages.push({ element: valdiviaAlbumPage, number: 'Valdivia · 01' });
+  return pages;
+}
+
+function renderAlbum(focusPage = null) {
+  const pages = unlockedAlbumPages();
   if (focusPage) {
     const focusedIndex = pages.findIndex(({ element }) => element === focusPage);
     if (focusedIndex !== -1) albumPageIndex = focusedIndex;
@@ -1529,31 +1560,134 @@ function renderAlbum(focusPage = null) {
     pages[albumPageIndex].element.hidden = false;
     albumPageNumber.textContent = `${pages[albumPageIndex].number} · ${albumPageIndex + 1}/${pages.length}`;
   } else {
-    albumPageNumber.textContent = 'Santiago · 00';
+    albumPageNumber.textContent = '';
   }
 }
 
+function copyAlbumLeaf(page, side) {
+  const leaf = document.createElement('div');
+  leaf.className = 'album-leaf-content';
+  leaf.dataset.side = side;
+  const content = page.querySelector(side === 'left' ? '.album-photo-frame' : '.album-caption').cloneNode(true);
+  content.querySelectorAll('[id]').forEach(element => element.removeAttribute('id'));
+  leaf.append(content);
+  return leaf;
+}
+
 function changeAlbumPage(direction) {
-  const pageCount = Number(whalePostcardCollected) + Number(quintaPhotoCollected) + Number(Boolean(tizneResponse)) + Number(valdiviaFamilyHelped) + Number(bridgePostcardCollected);
-  if (pageCount < 2) return;
-  albumPageIndex = (albumPageIndex + direction + pageCount) % pageCount;
-  renderAlbum();
+  const pages = unlockedAlbumPages();
+  if (pages.length < 2 || albumTurnFrame !== null) return;
+  const nextPageIndex = (albumPageIndex + direction + pages.length) % pages.length;
+  const showNextPage = () => {
+    albumPageIndex = nextPageIndex;
+    renderAlbum();
+  };
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    showNextPage();
+    return;
+  }
+
+  const sourceSide = direction > 0 ? 'right' : 'left';
+  const destinationSide = direction > 0 ? 'left' : 'right';
+  const outgoingPage = pages[albumPageIndex].element;
+  const arrivingPage = pages[nextPageIndex].element;
+  const front = copyAlbumLeaf(outgoingPage, sourceSide);
+  const back = copyAlbumLeaf(arrivingPage, destinationSide);
+  albumTurnReveal.dataset.side = sourceSide;
+  albumTurnReveal.replaceChildren(copyAlbumLeaf(arrivingPage, sourceSide));
+  albumTurnReveal.hidden = false;
+  albumTurnSheet.hidden = false;
+
+  const width = albumTurnSheet.offsetWidth;
+  const stripCount = 24;
+  const step = width / stripCount;
+  const fragment = document.createDocumentFragment();
+  const strips = Array.from({ length: stripCount }, (_, index) => {
+    const strip = document.createElement('div');
+    strip.className = 'album-turn-strip';
+    strip.style.width = `${step + .65}px`;
+    strip.style.setProperty('--leaf-width', `${width}px`);
+    const frontOffset = direction > 0 ? index * step : width - (index + 1) * step;
+    for (const [face, template, offset] of [
+      ['front', front, frontOffset], ['back', back, width - frontOffset - step]
+    ]) {
+      const wrapper = document.createElement('div');
+      wrapper.className = `album-turn-face album-turn-${face}`;
+      wrapper.style.setProperty('--leaf-offset', `${offset}px`);
+      wrapper.append(template.cloneNode(true));
+      strip.append(wrapper);
+    }
+    fragment.append(strip);
+    return strip;
+  });
+  albumTurnSheet.replaceChildren(fragment);
+
+  // The arc runs from the fixed spine to the free edge without stretching the sheet.
+  const start = performance.now();
+  const duration = 640;
+  function drawTurn(time) {
+    const progress = Math.min(1, Math.max(0, (time - start) / duration));
+    const sweep = Math.PI * progress ** 2 * (3 - 2 * progress);
+    const bend = Math.sin(Math.PI * progress) * 1.9;
+    const edgeLift = Math.sin(Math.PI * progress) * Math.min(13, width * .045);
+    let x = 0;
+    let depth = 0;
+    strips.forEach((strip, index) => {
+      const alongPage = (index + .5) / stripCount;
+      const angle = Math.min(Math.PI, Math.max(0, sweep + bend * (alongPage - .34)));
+      const nextX = x + step * Math.cos(angle);
+      const nextDepth = depth + step * Math.sin(angle);
+      const anchorX = direction > 0 ? x : -nextX;
+      const anchorDepth = direction > 0 ? depth : nextDepth;
+      const nearLift = -edgeLift * (index / stripCount) ** 1.5;
+      const farLift = -edgeLift * ((index + 1) / stripCount) ** 1.5;
+      const anchorLift = direction > 0 ? nearLift : farLift;
+      const slope = Math.atan(direction * (farLift - nearLift) / step);
+      strip.style.transform = `translate3d(${anchorX}px, ${anchorLift}px, ${anchorDepth}px) rotateY(${-direction * angle}rad) skewY(${slope}rad)`;
+      strip.style.setProperty('--leaf-shadow', Math.sin(angle) * .21);
+      x = nextX;
+      depth = nextDepth;
+    });
+    if (progress < 1) {
+      albumTurnFrame = requestAnimationFrame(drawTurn);
+    } else {
+      showNextPage();
+      clearAlbumTurn();
+    }
+  }
+  drawTurn(start);
+}
+
+function clearAlbumTurn() {
+  cancelAnimationFrame(albumTurnFrame);
+  albumTurnFrame = null;
+  albumTurnSheet.hidden = true;
+  albumTurnReveal.hidden = true;
+  albumTurnSheet.replaceChildren();
+  albumTurnReveal.replaceChildren();
 }
 
 function openAlbum(focusPage = null) {
   keys.clear();
   renderAlbum(focusPage);
   travelAlbum.hidden = false;
+  albumClose.focus();
 }
 
 function closeAlbum() {
+  clearAlbumTurn();
   travelAlbum.hidden = true;
+  if (albumOpenedFromItems) {
+    albumOpenedFromItems = false;
+    gameMenu.showModal();
+    openAlbumFromItems.focus();
+  } else game.focus();
 }
 
 function takeQuintaPhoto() {
   keys.clear();
   quintaPhotoCollected = true;
-  localStorage.setItem('kuro-quinta-photo', 'collected');
+  saveAfterMilestone();
   scene.classList.add('quinta-photo-collected');
   shutterFlash.classList.remove('active');
   void shutterFlash.offsetWidth;
@@ -1568,23 +1702,104 @@ function closePhotoMoment() {
   photoMoment.hidden = true;
 }
 
+function alignFirstLetter() {
+  if (!mailComposer.open) return;
+  const bounds = game.getBoundingClientRect();
+  Object.assign(mailComposer.style, {
+    left: `${bounds.left}px`,
+    top: `${bounds.top}px`,
+    width: `${bounds.width}px`,
+    height: `${bounds.height}px`
+  });
+  const paper = mailPaperPosition.getBoundingClientRect();
+  const slot = letterSlot.getBoundingClientRect();
+  mailPaper.style.setProperty('--mail-x', `${slot.left + slot.width / 2 - (paper.left + paper.width / 2)}px`);
+  mailPaper.style.setProperty('--mail-y', `${slot.top + slot.height / 2 - (paper.top + paper.height / 2)}px`);
+  mailPaper.style.setProperty('--mail-scale', Math.min(.36, slot.width * .9 / paper.width));
+}
+
+function openFirstLetter() {
+  const keepsakes = [
+    whalePostcardCollected && 'una postal de la ballena',
+    quintaPhotoCollected && 'una foto de Quinta Normal'
+  ].filter(Boolean);
+  mailPostscript.textContent = keepsakes.length ? `P. D. Te mando ${keepsakes.join(' y ')}.` : '';
+  mailPostscript.hidden = !keepsakes.length;
+  mailPostcard.hidden = !whalePostcardCollected;
+  mailPhoto.hidden = !quintaPhotoCollected;
+  mailAttachments.hidden = !keepsakes.length;
+  keys.clear();
+  mailComposer.showModal();
+  alignFirstLetter();
+  mailSend.focus();
+}
+
+function closeFirstLetter() {
+  mailComposer.close();
+  mailPaper.classList.remove('is-stamped', 'is-mailing');
+  mailFolds.replaceChildren();
+  mailClose.hidden = false;
+  game.focus();
+}
+
+mailClose.addEventListener('click', closeFirstLetter);
+mailComposer.addEventListener('cancel', event => {
+  event.preventDefault();
+  if (!mailPaper.classList.contains('is-stamped')) closeFirstLetter();
+});
+mailSend.addEventListener('click', () => {
+  if (mailPaper.classList.contains('is-stamped')) return;
+  mailClose.hidden = true;
+  mailPaper.classList.add('is-stamped');
+});
+mailPaper.addEventListener('animationend', event => {
+  if (event.target === mailImprint && event.animationName === 'mail-stamp') {
+    for (let index = 0; index < 3; index++) {
+      const flap = document.createElement('div');
+      flap.className = 'mail-flap';
+      const front = document.createElement('div');
+      front.className = 'mail-fold-face';
+      front.append(mailCopy.cloneNode(true));
+      flap.append(front);
+      if (index !== 1) {
+        const back = document.createElement('div');
+        back.className = 'mail-fold-face mail-fold-back';
+        flap.append(back);
+      }
+      mailFolds.append(flap);
+    }
+    alignFirstLetter();
+    mailPaper.classList.add('is-mailing');
+  }
+  if (event.target === mailPaper && event.animationName === 'mail-flight') {
+    firstLetterSent = true;
+    scene.classList.add('letter-sent');
+    saveAfterMilestone();
+    closeFirstLetter();
+    startDialogue([['Estafeta Gatuna', 'Carta enviada a la abuelita.']]);
+  }
+});
+addEventListener('resize', alignFirstLetter);
+addEventListener('scroll', alignFirstLetter);
+
 function updateMapDetails(zoneId) {
   worldMap.dataset.zone = zoneId;
   const [stamp, title, status, icon, description] = mapZoneDetails[zoneId];
   const isSantiago = zoneId === 'santiago';
+  const canTravel = !mapOpenedFromMenu || Boolean(activeSave);
   mapZoneStamp.textContent = stamp;
   mapZoneTitle.textContent = title;
   santiagoMapStatus.textContent = isSantiago
-    ? firstLetterSent
+    ? !canTravel ? 'Barrio Yungay, Quinta Normal y Estación Mapocho' : firstLetterSent
       ? 'Recorrido completado · carta enviada'
       : 'Recorrido completado · carta pendiente'
     : status;
-  localMapNodes.hidden = !isSantiago;
-  nextDestination.hidden = !isSantiago;
+  localMapNodes.hidden = !isSantiago || !canTravel;
+  nextDestination.hidden = !isSantiago || !canTravel;
   mapZoneMessage.hidden = isSantiago;
   mapZoneIcon.textContent = icon;
   mapZoneDescription.textContent = description;
-  mapZoneTravel.hidden = !['valparaiso', 'valdivia'].includes(zoneId);
+  mapZoneTravel.hidden = !canTravel || !['valparaiso', 'valdivia'].includes(zoneId);
   mapZoneTravel.textContent = zoneId === 'valdivia' ? 'Viajar a Valdivia' : 'Viajar a Estación Puerto';
   const nextZone = tizneResponse ? 'valdivia' : 'valparaiso';
   nextDestination.querySelector('strong').textContent = nextZone === 'valdivia' ? 'Valdivia' : 'Valparaíso';
@@ -1649,20 +1864,67 @@ function moveLocalMapSelection(direction) {
   selectLocalMapDestination(nextIndex);
 }
 
+let trainRideArtwork;
+
+function preloadTrainImages(paths) {
+  return Promise.allSettled(paths.map(path => {
+    const image = new Image();
+    image.src = path;
+    return image.decode?.();
+  }));
+}
+
+function prepareTrainRide() {
+  trainRideArtwork ??= preloadTrainImages([
+    'assets/kuro-vagon-mapochovalpo-v1.webp',
+    'assets/kuro-paisaje-tren-v1.webp',
+    'assets/kuro-lomas-costa-tren-v1.webp',
+    'assets/kuro-cerros-antes-del-puerto-v1.webp',
+    'assets/kuro-costanera-antes-de-estacion-v1.webp',
+    'assets/kuro-poste-ferroviario-v1.webp'
+  ]).then(results => {
+    if (results.some(result => result.status === 'rejected')) trainRideArtwork = null;
+  });
+}
+
+async function rideToValparaiso() {
+  if (!trainRide.hidden || transitioning) return;
+  prepareTrainRide();
+  keys.clear();
+  trainRide.hidden = false;
+  trainWheels.currentTime = 0;
+  trainWheels.play().catch(() => {});
+
+  const destinationReady = new Promise(resolve => {
+    const timeout = setTimeout(resolve, 8000);
+    preloadTrainImages([
+      'assets/valparaiso-continuo-pixel-v1.png',
+      'assets/valparaiso-cerro-cueva-pixel-v1.png'
+    ]).then(() => {
+      clearTimeout(timeout);
+      resolve();
+    });
+  });
+  await Promise.all([destinationReady, new Promise(resolve => setTimeout(resolve, 4430))]);
+  trainRide.classList.add('is-arriving');
+  await new Promise(resolve => setTimeout(resolve, 1000));
+
+  trainRide.classList.add('is-leaving');
+  changeLocation('valparaiso', 'from-map', null, () => {
+    trainRide.hidden = true;
+    trainRide.classList.remove('is-arriving', 'is-leaving');
+    trainWheels.pause();
+  });
+}
+
 function confirmMapSelection() {
+  if (mapOpenedFromMenu && !activeSave) return;
   if (selectedLocalDestination >= 0) {
     localTravelButtons[selectedLocalDestination].click();
     return;
   }
   if (selectedMapZone === 'santiago') localTravelButtons[0].click();
-  else if (selectedMapZone === 'valparaiso') {
-    closeWorldMap();
-    changeLocation('valparaiso', 'from-map');
-  }
-  else if (selectedMapZone === 'valdivia') {
-    closeWorldMap();
-    changeLocation('valdivia', 'from-map');
-  }
+  else if (selectedMapZone === 'valparaiso' || selectedMapZone === 'valdivia') mapZoneTravel.click();
   else {
     const selectedNode = mapZoneNodes.find((node) => node.dataset.mapZone === selectedMapZone);
     selectedNode?.classList.remove('map-denied');
@@ -1671,36 +1933,58 @@ function confirmMapSelection() {
   }
 }
 
-function openWorldMap() {
+function openWorldMap(fromMenu = false) {
   keys.clear();
+  mapOpenedFromMenu = fromMenu;
+  worldMap.classList.toggle('opened-from-menu', fromMenu);
+  worldMapClose.setAttribute('aria-label', fromMenu ? 'Volver al Cuaderno de viaje' : 'Cerrar mapa');
+  worldMap.querySelector('.world-map-help').textContent = fromMenu && !activeSave
+    ? 'Flechas o toca un destino para explorarlo · Esc volver'
+    : 'WASD / flechas mover · E / Enter confirmar · toca un nodo · Esc cerrar';
   selectMapZone('santiago');
   worldMap.hidden = false;
+  if (fromMenu) worldMapClose.focus();
 }
 
-function closeWorldMap() {
+function closeWorldMap(returnToMenu = true) {
   selectedLocalDestination = -1;
   localMapNodes.classList.remove('keyboard-active');
   localTravelButtons.forEach((button) => button.classList.remove('keyboard-selected'));
   worldMap.hidden = true;
+  const showTravelMenu = mapOpenedFromMenu && returnToMenu;
+  mapOpenedFromMenu = false;
+  if (showTravelMenu) {
+    gameMenu.showModal();
+    openMapFromMenu.focus();
+  }
 }
 
 albumPrev.addEventListener('click', () => changeAlbumPage(-1));
 albumNext.addEventListener('click', () => changeAlbumPage(1));
-worldMapClose.addEventListener('click', closeWorldMap);
+albumClose.addEventListener('click', closeAlbum);
+worldMapClose.addEventListener('click', () => closeWorldMap());
 nextDestination.addEventListener('click', () => selectMapZone(tizneResponse ? 'valdivia' : 'valparaiso', true));
 mapZoneTravel.addEventListener('click', () => {
+  if (mapOpenedFromMenu && !activeSave) return;
   const destination = selectedMapZone;
-  closeWorldMap();
-  if (destination === 'valparaiso' || destination === 'valdivia') changeLocation(destination, 'from-map');
+  closeWorldMap(false);
+  game.focus();
+  if (currentPlace === 'station' && destination === 'valparaiso') rideToValparaiso();
+  else if (destination === 'valparaiso' || destination === 'valdivia') changeLocation(destination, 'from-map');
 });
 mapZoneNodes.forEach((node) => {
   node.addEventListener('click', () => selectMapZone(node.dataset.mapZone));
 });
 worldMap.querySelectorAll('[data-travel]').forEach((button) => {
   button.addEventListener('click', () => {
+    if (mapOpenedFromMenu && !activeSave) return;
     const destination = button.dataset.travel;
-    closeWorldMap();
-    if (destination === 'santiago') changeLocation('street');
+    closeWorldMap(false);
+    game.focus();
+    if (destination === 'santiago') {
+      if (currentPlace === 'valparaiso' || currentPlace === 'valdivia') changeLocation('station', 'from-route');
+      else changeLocation('street');
+    }
   });
 });
 
@@ -1712,7 +1996,6 @@ function currentInteraction() {
   const motaX = game.clientWidth * 0.523;
   if (currentPlace === 'street' && x >= motaX - 180 && x <= motaX + 155) return 'talk-mota';
   if (currentPlace === 'street' && x >= game.clientWidth * 1.32 && x <= game.clientWidth * 1.49) return 'enter-museum';
-  if (currentPlace === 'street' && x >= game.clientWidth * 1.6875 - 110) return quintaPhotoCollected ? 'go-station' : 'station-locked';
   if (currentPlace === 'street' && x >= game.clientWidth * 1.12 && x <= game.clientWidth * 1.27) return quintaPhotoCollected ? 'view-mirador' : 'take-photo';
   if (currentPlace === 'house' && x <= game.clientWidth * 0.25) return 'exit-house';
   if (currentPlace === 'house' && x >= game.clientWidth * 0.27 && x <= game.clientWidth * 0.39) return 'sit-chair';
@@ -1722,10 +2005,8 @@ function currentInteraction() {
   if (currentPlace === 'quinta' && x <= 145) return 'return-plaza';
   if (currentPlace === 'quinta' && x >= game.clientWidth * 0.38 && x <= game.clientWidth * 0.57) return 'enter-museum';
   if (currentPlace === 'quinta' && x >= game.clientWidth * 0.72 && x <= game.clientWidth - 115) return quintaPhotoCollected ? 'view-mirador' : 'take-photo';
-  if (currentPlace === 'quinta' && x >= game.clientWidth - 110) return quintaPhotoCollected ? 'go-station' : 'station-locked';
   if (currentPlace === 'museum' && x <= 75) return 'exit-museum';
   if (currentPlace === 'museum' && !whalePostcardCollected && x >= game.clientWidth - 300) return 'collect-postcard';
-  if (currentPlace === 'station' && x <= 145) return 'return-quinta';
   if (currentPlace === 'station' && x >= game.clientWidth * 0.2 && x <= game.clientWidth * 0.5) return 'use-estafeta';
   if (currentPlace === 'station' && x >= game.clientWidth * 0.58 && x <= game.clientWidth - 125) return 'take-train';
   if (currentPlace === 'valparaiso' && x <= 145) return 'take-return-train';
@@ -1764,7 +2045,7 @@ function currentInteraction() {
 function startCopoFollowing(appearBesideKuro = false) {
   if (copoFollowing) return;
   copoFollowing = true;
-  localStorage.setItem('kuro-valdivia-copo-following-v1', 'yes');
+  saveAfterMilestone();
   scene.classList.add('copo-following');
   copoWorldX = appearBesideKuro ? Math.max(10, x - 65) : valdiviaCopo.offsetLeft;
   copoChasing = false;
@@ -1841,12 +2122,10 @@ function updateValdiviaVendor(time) {
   valdiviaVendor.style.setProperty('--vendor-facing', vendorShownFacing);
 }
 
-function changeLocation(nextLocation, entry = 'default') {
+function changeLocation(nextLocation, entry = 'default', checkpoint = null, onArrival = null) {
   if (transitioning) return;
-  if (currentPlace === 'valparaiso' && nextLocation === 'street' && tizneResponse) {
-    returnedFromValparaiso = true;
-    localStorage.setItem('kuro-returned-from-valparaiso', 'yes');
-  }
+  const justReturnedFromValparaiso = currentPlace === 'valparaiso' && (nextLocation === 'station' || nextLocation === 'street') && tizneResponse && !returnedFromValparaiso;
+  if (justReturnedFromValparaiso) returnedFromValparaiso = true;
   transitioning = true;
   fade.classList.add('active');
   setTimeout(() => {
@@ -1891,7 +2170,8 @@ function changeLocation(nextLocation, entry = 'default') {
       resetPackChase();
     }
     locationLabel.hidden = atMuseum;
-    locationLabel.textContent = inside ? 'Casa de Kuro' : atPlaza ? 'Plaza Yungay' : atQuinta ? 'Quinta Normal' : atMuseum ? 'Museo · Sala de la Ballena' : atStation ? 'Estación Mapocho' : atValparaiso ? 'Valparaíso' : atValdivia ? 'Valdivia · Costanera' : atBridge ? 'Puente Pedro de Valdivia · Subida' : atCave ? 'Cueva del Chivato' : 'Barrio Yungay · Plaza Yungay · Quinta Normal';
+    locationLabel.textContent = atStreet ? 'Barrio Yungay · Plaza Yungay · Quinta Normal'
+      : atBridge ? locationNames.bridge + ' · Subida' : locationNames[currentPlace];
     if (inside) x = entry === 'at-chair' ? game.clientWidth * 0.34 : 175;
     else if (atPlaza) x = entry === 'from-quinta' ? game.clientWidth - 150 : entry === 'at-mota' ? game.clientWidth * 0.35 : 120;
     else if (atQuinta) x = entry === 'from-museum' ? game.clientWidth * 0.5 : entry === 'at-mirador' ? game.clientWidth * 0.76 : 120;
@@ -1901,7 +2181,12 @@ function changeLocation(nextLocation, entry = 'default') {
     else if (atValdivia) x = entry === 'at-coipo' ? valdiviaCopo.offsetLeft + valdiviaCopo.offsetWidth / 2 - 110 : entry === 'at-pier' ? game.clientWidth * 1.83 : entry === 'at-market' ? game.clientWidth * 2.32 : entry === 'at-vendor' ? valdiviaVendorCenter() - 125 : entry === 'at-passage' ? game.clientWidth * 2.82 : entry === 'at-island' ? game.clientWidth * 3.63 : game.clientWidth * 0.22;
     else if (atBridge) x = entry === 'at-log' ? game.clientWidth * 1.05 - 50 : entry === 'at-mud' ? game.clientWidth * 1.45 - 50 : entry === 'at-refuge' ? game.clientWidth * 1.56 - 50 : entry === 'from-island' ? game.clientWidth * 1.54 - 50 : game.clientWidth * .42 - 50;
     else if (atCave) x = entry === 'at-goat' ? game.clientWidth * (caveBellCollected ? 3.08 : 2.72) : entry === 'at-sea-lion' ? game.clientWidth * 4.65 : entry === 'at-dog' ? game.clientWidth * 1.05 : entry === 'at-middle' ? game.clientWidth * 3.75 : entry === 'at-bird' ? game.clientWidth * .54 : entry === 'at-bell' ? game.clientWidth * 5.67 : 185;
-    else x = entry === 'from-quinta' ? game.clientWidth * 1.6875 - 150 : entry === 'from-museum' ? game.clientWidth * 1.29 : entry === 'at-museum' ? game.clientWidth * 1.40 : entry === 'at-quinta' ? game.clientWidth * 1.20 : entry === 'at-mota' ? game.clientWidth * 0.36 : entry === 'at-plaza' ? game.clientWidth * 0.86 : entry === 'at-neighborhood' ? game.clientWidth * 0.46 : entry === 'at-seam' ? game.clientWidth * 0.90 : game.clientWidth * 0.14;
+    else x = entry === 'from-quinta' || entry === 'from-station' ? game.clientWidth * 1.6875 - 150 : entry === 'from-museum' ? game.clientWidth * 1.29 : entry === 'at-museum' ? game.clientWidth * 1.40 : entry === 'at-quinta' ? game.clientWidth * 1.20 : entry === 'at-mota' ? game.clientWidth * 0.36 : entry === 'at-plaza' ? game.clientWidth * 0.86 : entry === 'at-neighborhood' ? game.clientWidth * 0.46 : entry === 'at-seam' ? game.clientWidth * 0.90 : game.clientWidth * 0.14;
+    if (Number.isFinite(checkpoint?.horizontal)) {
+      x = Math.max(10, checkpoint.horizontal * game.clientWidth - 50);
+      facing = checkpoint.facing === -1 ? -1 : 1;
+      kuro.style.setProperty('--facing', facing);
+    }
     if (atValdivia || atBridge) {
       copoWorldX = copoFollowing ? Math.max(10, x - 65) : null;
       copoChasing = false;
@@ -1918,9 +2203,12 @@ function changeLocation(nextLocation, entry = 'default') {
     jumpsUsed = 0;
     bridgeDepth = atBridge && entry === 'at-log' ? game.clientHeight * 3.28 : atBridge && entry === 'at-mud' ? game.clientHeight * 2.06 : atBridge && entry === 'at-refuge' ? game.clientHeight * 5.61 : atBridge && entry === 'from-island' ? game.clientHeight * 5.98 : atBridge ? game.clientHeight * .16 : 0;
     bridgeDirection = entry === 'from-island' ? 'front' : 'back';
+    if (atBridge && Number.isFinite(checkpoint?.depth)) {
+      bridgeDepth = Math.max(bridgeExitDepth(), Math.min(bridgeTop(), checkpoint.depth * game.clientHeight));
+    }
     autoEscapingCave = false;
     if (['at-neighborhood', 'at-seam', 'at-plaza', 'at-mota', 'at-quinta', 'at-museum', 'from-museum'].includes(entry) && atStreet) cameraX = Math.max(0, Math.min(game.clientWidth * 0.6875, x - game.clientWidth * 0.45));
-    else if (entry === 'from-quinta') cameraX = atStreet ? game.clientWidth * 0.6875 : atPlaza ? 0 : Math.max(0, worldWidth - game.clientWidth);
+    else if (entry === 'from-quinta' || entry === 'from-station') cameraX = atStreet ? game.clientWidth * 0.6875 : atPlaza ? 0 : Math.max(0, worldWidth - game.clientWidth);
     else if (entry === 'from-museum') cameraX = atQuinta ? 0 : Math.max(0, Math.min(worldWidth - game.clientWidth, 1430 - game.clientWidth * 0.45));
     else if (entry === 'at-mirador') cameraX = atQuinta ? 0 : Math.max(0, worldWidth - game.clientWidth);
     else if (entry === 'at-estafeta' || entry === 'at-train') cameraX = atStation ? 0 : Math.max(0, Math.min(worldWidth - game.clientWidth, x - game.clientWidth * 0.45));
@@ -1928,7 +2216,14 @@ function changeLocation(nextLocation, entry = 'default') {
     else if (atCave && ['at-goat', 'at-sea-lion', 'at-dog', 'at-middle', 'at-bird', 'at-bell'].includes(entry)) cameraX = Math.max(0, Math.min(game.clientWidth * 5, x - game.clientWidth * 0.45));
     else cameraX = 0;
     cameraY = atBridge ? Math.max(0, scene.offsetHeight - game.clientHeight) : 0;
+    if (checkpoint && Number.isFinite(checkpoint.horizontal)) {
+      cameraX = Math.max(0, Math.min(scene.offsetWidth - game.clientWidth, x - game.clientWidth * .5));
+      if (atBridge) {
+        cameraY = Math.max(0, Math.min(cameraY, scene.offsetHeight * .96 - bridgeDepth - game.clientHeight * .68));
+      }
+    }
     if (atBridge) renderBridgePath();
+    if (atStation) prepareTrainRide();
     cameraLookAhead = 0;
     dialogue.hidden = true;
     scene.classList.remove('window-gazing');
@@ -1936,14 +2231,31 @@ function changeLocation(nextLocation, entry = 'default') {
     requestAnimationFrame(() => {
       fade.classList.remove('active');
       transitioning = false;
+      if (justReturnedFromValparaiso || (nextLocation === 'valdivia' && entry === 'at-island' && valdiviaBridgeCrossed)) {
+        saveAfterMilestone();
+      }
+      onArrival?.();
     });
   }, 180);
 }
 
 addEventListener('keydown', (event) => {
+  if (!trainRide.hidden) {
+    if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' '].includes(event.key)) event.preventDefault();
+    return;
+  }
+  if (gameMenu.open || (event.target === pauseGame && ['Enter', ' '].includes(event.key))) return;
   const pressedKey = event.key.toLowerCase();
+  if (mailComposer.open) {
+    if (pressedKey === 'e' && !event.repeat) {
+      event.preventDefault();
+      mailSend.click();
+    }
+    return;
+  }
   if (!worldMap.hidden) {
     if (pressedKey === 'escape') {
+      event.preventDefault();
       closeWorldMap();
       return;
     }
@@ -1986,9 +2298,13 @@ addEventListener('keydown', (event) => {
     return;
   }
   if (!travelAlbum.hidden) {
-    if (pressedKey === 'arrowleft' && !event.repeat) changeAlbumPage(-1);
-    else if (pressedKey === 'arrowright' && !event.repeat) changeAlbumPage(1);
-    else if ((pressedKey === 'escape' || pressedKey === 'e' || pressedKey === 'enter') && !event.repeat) closeAlbum();
+    if (pressedKey === 'arrowleft' || pressedKey === 'arrowright') {
+      event.preventDefault();
+      if (!event.repeat) changeAlbumPage(pressedKey === 'arrowleft' ? -1 : 1);
+    } else if (!event.repeat && (pressedKey === 'escape' || pressedKey === 'e' ||
+      (pressedKey === 'enter' && !travelAlbum.contains(event.target)))) {
+      closeAlbum();
+    }
     return;
   }
   if (!dialogue.hidden) {
@@ -2003,6 +2319,11 @@ addEventListener('keydown', (event) => {
     }
     if (pressedKey === 'escape') closeDialogue();
     else if ((pressedKey === 'e' || pressedKey === 'enter') && !event.repeat) advanceDialogue();
+    return;
+  }
+  if (pressedKey === 'escape' && !event.repeat && activeSave) {
+    event.preventDefault();
+    openPauseMenu();
     return;
   }
   if (pressedKey === 'f' && !event.repeat) {
@@ -2050,11 +2371,6 @@ addEventListener('keydown', (event) => {
       else startDialogue(motaConversation);
     }
     if (interaction === 'enter-museum') changeLocation('museum');
-    if (interaction === 'go-station') changeLocation('station');
-    if (interaction === 'return-quinta') changeLocation('street', 'at-quinta');
-    if (interaction === 'station-locked') {
-      startDialogue([['Kuro', 'Quiero seguir, pero antes debería guardar una foto de este lugar.']]);
-    }
     if (interaction === 'take-photo') takeQuintaPhoto();
     if (interaction === 'view-mirador') {
       startDialogue([['Kuro', 'Desde aquí todo se ve distinto. Me alegra haber guardado este momento.']]);
@@ -2064,7 +2380,6 @@ addEventListener('keydown', (event) => {
     if (interaction === 'return-bridge') changeLocation('bridge', 'from-island');
     if (interaction === 'cross-bridge') {
       valdiviaBridgeCrossed = true;
-      localStorage.setItem('kuro-valdivia-bridge-v1', 'crossed');
       changeLocation('valdivia', 'at-island');
     }
     if (interaction === 'bridge-log') {
@@ -2072,7 +2387,7 @@ addEventListener('keydown', (event) => {
     }
     if (interaction === 'bridge-postcard') {
       bridgePostcardCollected = true;
-      localStorage.setItem('kuro-bridge-postcard-v1', 'collected');
+      saveAfterMilestone();
       scene.classList.add('bridge-postcard-collected');
       openAlbum(bridgeAlbumPage);
     }
@@ -2097,7 +2412,7 @@ addEventListener('keydown', (event) => {
     if (interaction === 'inspect-tracks') {
       startCopoFollowing(true);
       valdiviaTracksFound = true;
-      localStorage.setItem('kuro-valdivia-tracks-v1', 'found');
+      saveAfterMilestone();
       startDialogue([
         ['Kuro', 'Son huellitas de barro… van desde los puestos hacia el puente.'],
         ['Copo', '¡Te dije que no eran mías! Mi gorro no deja huellas.'],
@@ -2109,7 +2424,7 @@ addEventListener('keydown', (event) => {
       else {
         if (!valdiviaPassageFound) {
           valdiviaPassageFound = true;
-          localStorage.setItem('kuro-valdivia-passage-v1', 'found');
+          saveAfterMilestone();
           scene.classList.add('valdivia-passage-found');
           startDialogue([
             ['Copo', 'Mira, las huellas siguen por aquí. Hay plataformas para subir por el puente.'],
@@ -2122,7 +2437,7 @@ addEventListener('keydown', (event) => {
       if (valdiviaFamilyHelped) startDialogue([['Copo', 'Ahora tienen un rincón seco. Qué bueno que seguimos las huellas.']]);
       else {
         valdiviaFamilyHelped = true;
-        localStorage.setItem('kuro-valdivia-family-v1', 'helped');
+        saveAfterMilestone();
         scene.classList.add('valdivia-family-helped');
         renderAlbum();
         startDialogue([
@@ -2138,29 +2453,22 @@ addEventListener('keydown', (event) => {
     if (interaction === 'use-estafeta') {
       if (firstLetterSent && returnedFromValparaiso && tizneResponse) {
         grandmotherReplyRead = true;
-        localStorage.setItem('kuro-grandmother-reply', 'read');
+        saveAfterMilestone();
         startDialogue([
           ['Estafeta Gatuna', '¡Llegó una carta para Kuro! Es de tu abuelita.'],
-          ['Abuelita', '¡Kuro, mi niño! Me llegó tu primera carta. ¡Una ballena enorme y tu primera foto! Me alegró tanto saber de ti.'],
+          ['Abuelita', '¡Kuro, mi niño! Me llegó tu primera carta. Me alegró saber que llegaste bien a Mapocho.'],
           ['Abuelita', 'Cuando visites otro lugar, mándame otra, ¿sí? Así puedo imaginar por dónde andan tus patitas… y saber que estás bien.'],
           ['Kuro', 'Le mandaré una desde el próximo lugar.']
         ]);
       } else if (firstLetterSent) {
-        startDialogue([['Estafeta Gatuna', 'Tu carta ya va en camino. El viaje de hoy está guardado.']]);
+        startDialogue([['Estafeta Gatuna', 'Tu carta para la abuelita ya va en camino.']]);
       } else {
-        firstLetterSent = true;
-        localStorage.setItem('kuro-first-letter', 'sent');
-        scene.classList.add('letter-sent');
-        startDialogue([
-          ['Kuro', 'Abuelita: hoy vi una ballena enorme y saqué mi primera foto.'],
-          ['Kuro', 'Empecé cerquita de casa, pero siento que el mundo ya se hizo más grande.'],
-          ['Estafeta Gatuna', 'Carta enviada. Tu viaje quedó guardado.']
-        ]);
+        openFirstLetter();
       }
     }
     if (interaction === 'collect-postcard') {
       whalePostcardCollected = true;
-      localStorage.setItem('kuro-whale-postcard', 'collected');
+      saveAfterMilestone();
       scene.classList.add('postcard-collected');
       startDialogue([
         ['Álbum de Viaje', 'Postal: La ballena de Quinta Normal'],
@@ -2185,6 +2493,10 @@ addEventListener('keyup', (event) => {
 function loop(time) {
   const dt = Math.min((time - lastTime) / 1000, 0.033);
   lastTime = time;
+  if (gameMenu.open || mailComposer.open || !trainRide.hidden || (mapOpenedFromMenu && !activeSave)) {
+    requestAnimationFrame(loop);
+    return;
+  }
   const propScale = Math.max(0.78, Math.min(1, game.clientWidth / 1100));
   scene.style.setProperty('--prop-scale', propScale.toFixed(3));
   if (sittingInChair) x = game.clientWidth * 0.34;
@@ -2211,6 +2523,9 @@ function loop(time) {
     if (currentPlace === 'bridge') bridgeDirection = 'side';
     facing = 1;
     kuro.style.setProperty('--facing', facing);
+    if (!transitioning && (currentPlace === 'street' || currentPlace === 'quinta') && x >= activeWorldWidth - 110) {
+      changeLocation('station');
+    }
   }
   if (controlsEnabled && !(currentPlace === 'bridge' && bridgeMudReturn) && (keys.has('arrowleft') || keys.has('a'))) {
     const nextX = Math.max(10, x - speed * bridgeMoveScale * dt);
@@ -2219,6 +2534,9 @@ function loop(time) {
     if (currentPlace === 'bridge') bridgeDirection = 'side';
     facing = -1;
     kuro.style.setProperty('--facing', facing);
+    if (!transitioning && currentPlace === 'station' && x <= 10) {
+      changeLocation('street', 'from-station');
+    }
   }
   if (controlsEnabled && currentPlace === 'bridge' && !bridgeMudReturn) {
     if (bridgeVertical > 0) {
@@ -2365,9 +2683,6 @@ function loop(time) {
     'talk-mota': 'Hablar con Mota',
     'go-quinta': 'Ir a Quinta Normal',
     'enter-museum': 'Entrar al museo',
-    'go-station': 'Ir a Estación Mapocho',
-    'return-quinta': 'Volver a Quinta Normal',
-    'station-locked': 'Revisar la ruta',
     'take-photo': 'Sacar una foto',
     'view-mirador': 'Mirar el paisaje',
     'use-estafeta': firstLetterSent && returnedFromValparaiso && tizneResponse
@@ -2398,8 +2713,8 @@ function loop(time) {
   interactionPrompt.classList.toggle('object-right', interaction === 'collect-postcard');
   interactionPrompt.classList.toggle('chair-action', interaction === 'leave-chair');
   interactionPrompt.classList.toggle('talk-mota', interaction === 'talk-mota');
-  interactionPrompt.classList.toggle('quinta-action', ['enter-museum', 'take-photo', 'view-mirador', 'go-station', 'station-locked'].includes(interaction));
-  interactionPrompt.classList.toggle('mirador-action', ['take-photo', 'view-mirador', 'go-station', 'station-locked'].includes(interaction));
+  interactionPrompt.classList.toggle('quinta-action', ['enter-museum', 'take-photo', 'view-mirador'].includes(interaction));
+  interactionPrompt.classList.toggle('mirador-action', ['take-photo', 'view-mirador'].includes(interaction));
   interactionPrompt.classList.toggle('station-action', ['use-estafeta', 'take-train'].includes(interaction));
   interactionPrompt.classList.toggle('train-action', interaction === 'take-train');
   interactionPrompt.hidden = !interaction || !dialogue.hidden || (interaction === 'bridge-log' && time < bridgeLogReadyAt);
@@ -2453,17 +2768,507 @@ function loop(time) {
   if (currentPlace === 'bridge' && bridgeDirection !== 'side') kuro.style.backgroundPositionX = '';
   requestAnimationFrame(loop);
 }
+const gameMenu = document.querySelector('#game-menu');
+const gameMenuHeading = document.querySelector('#game-menu-heading');
+const gameMenuSubtitle = document.querySelector('#game-menu-subtitle');
+const menuStatus = document.querySelector('#game-menu-status');
+const menuKeys = document.querySelector('#game-menu-keys');
+const mainMenu = document.querySelector('#main-menu');
+const continueMenu = document.querySelector('#continue-menu');
+const activeSaveMenu = document.querySelector('#active-save-menu');
+const travelMapMenu = document.querySelector('#travel-map-menu');
+const travelItemsMenu = document.querySelector('#travel-items-menu');
+const travelMenuTabs = document.querySelector('#travel-menu-tabs');
+const travelTabButtons = [...travelMenuTabs.querySelectorAll('[data-travel-tab]')];
+const travelMenuBack = document.querySelector('#travel-menu-back');
+const openMapFromMenu = document.querySelector('#open-map-from-menu');
+const inventorySaveRow = document.querySelector('#inventory-save-row');
+const inventorySave = document.querySelector('#inventory-save');
+const inventoryBell = document.querySelector('#inventory-bell');
+const inventoryBellDescription = document.querySelector('#inventory-bell-description');
+const inventoryEmpty = document.querySelector('#inventory-empty');
+const inventoryNotebook = document.querySelector('#inventory-notebook');
+const inventoryNotebookDescription = document.querySelector('#inventory-notebook-description');
+const openAlbumFromItems = document.querySelector('#open-album-from-items');
+const savedGamesList = document.querySelector('#saved-games');
+const travelSavesSummary = document.querySelector('#travel-saves-summary');
+const emptySavedGames = document.querySelector('#empty-saved-games');
+const newGameForm = document.querySelector('#new-game-form');
+const saveName = document.querySelector('#save-name');
+const pauseMenu = document.querySelector('#pause-menu');
+const exitConfirmMenu = document.querySelector('#exit-confirm-menu');
+const exitDoneMenu = document.querySelector('#exit-done-menu');
+const saveAndCloseGame = document.querySelector('#save-and-close-game');
+const pauseGame = document.querySelector('#pause-game');
+const continueGame = document.querySelector('#continue-game');
+const newGame = document.querySelector('#new-game');
+const openGameMenu = document.querySelector('#open-game-menu');
+const openTravelFromPause = document.querySelector('#open-travel-from-pause');
+const resumeGame = document.querySelector('#resume-game');
+const travelMenuTitle = 'Cuaderno de viaje';
+const savePrefix = 'kuro-save-v1-';
+const locationNames = {
+  street: 'Barrio Yungay',
+  house: 'Casa de Kuro',
+  plaza: 'Plaza Yungay',
+  quinta: 'Quinta Normal',
+  museum: 'Museo · Sala de la Ballena',
+  station: 'Estación Mapocho',
+  valparaiso: 'Valparaíso',
+  valdivia: 'Valdivia · Costanera',
+  bridge: 'Puente Pedro de Valdivia',
+  cave: 'Cueva del Chivato'
+};
+const saveDateFormat = new Intl.DateTimeFormat('es-CL', { dateStyle: 'medium', timeStyle: 'short' });
+let activeSave = null;
+
+function readLegacyProgress() {
+  const legacyKeys = {
+    whalePostcardCollected: ['kuro-whale-postcard', 'collected'],
+    quintaPhotoCollected: ['kuro-quinta-photo', 'collected'],
+    bridgePostcardCollected: ['kuro-bridge-postcard-v1', 'collected'],
+    firstLetterSent: ['kuro-first-letter', 'sent'],
+    returnedFromValparaiso: ['kuro-returned-from-valparaiso', 'yes'],
+    grandmotherReplyRead: ['kuro-grandmother-reply', 'read'],
+    caveBellCollected: ['kuro-cave-bell', 'collected'],
+    brumaBellReturned: ['kuro-bruma-bell-returned', 'returned'],
+    brumaMet: ['kuro-bruma-met', 'met'],
+    valdiviaTracksFound: ['kuro-valdivia-tracks-v1', 'found'],
+    valdiviaPassageFound: ['kuro-valdivia-passage-v1', 'found'],
+    valdiviaBridgeCrossed: ['kuro-valdivia-bridge-v1', 'crossed'],
+    valdiviaFamilyHelped: ['kuro-valdivia-family-v1', 'helped'],
+    copoFollowing: ['kuro-valdivia-copo-following-v1', 'yes']
+  };
+  const progress = Object.fromEntries(Object.entries(legacyKeys).map(([name, [key, value]]) =>
+    [name, localStorage.getItem(key) === value]));
+  progress.tizneResponse = localStorage.getItem('kuro-tizne-response');
+  return progress;
+}
+
+function applySavedProgress(progress) {
+  ({
+    whalePostcardCollected = false, quintaPhotoCollected = false, bridgePostcardCollected = false,
+    firstLetterSent = false, returnedFromValparaiso = false, grandmotherReplyRead = false,
+    caveBellCollected = false, brumaBellReturned = false, brumaMet = false, tizneResponse = null,
+    valdiviaTracksFound = false, valdiviaPassageFound = false, valdiviaBridgeCrossed = false,
+    valdiviaFamilyHelped = false, copoFollowing = valdiviaTracksFound, motaConversationComplete = false,
+    tizneConversationComplete = false, bridgeLogProgress = 0, bridgeMudLearned = false
+  } = progress);
+  copoFollowing ||= valdiviaTracksFound;
+  bridgeLogProgress = Math.min(1, Math.max(0, Number(bridgeLogProgress) || 0));
+  bridgeLogTouched = bridgeLogProgress > 0;
+  bridgeLogPlaced = bridgeLogProgress === 1;
+  scene.classList.toggle('bridge-log-placed', bridgeLogPlaced);
+  scene.classList.toggle('postcard-collected', whalePostcardCollected);
+  scene.classList.toggle('quinta-photo-collected', quintaPhotoCollected);
+  scene.classList.toggle('bridge-postcard-collected', bridgePostcardCollected);
+  scene.classList.toggle('letter-sent', firstLetterSent);
+  scene.classList.toggle('valparaiso-complete', Boolean(tizneResponse));
+  movementHint.textContent = movementHintText();
+  renderAlbum();
+}
+
+function writeSave(save) {
+  localStorage.setItem(savePrefix + save.slot, JSON.stringify(save));
+}
+
+function listSaves() {
+  const saves = [];
+  let nextSlot = 1;
+  for (const key of Object.keys(localStorage)) {
+    if (!key.startsWith(savePrefix)) continue;
+    const slot = Number(key.slice(savePrefix.length));
+    if (!Number.isSafeInteger(slot) || slot < 1) continue;
+    nextSlot = Math.max(nextSlot, slot + 1);
+    try {
+      const save = JSON.parse(localStorage.getItem(key));
+      if (save?.slot === slot && typeof save.name === 'string' &&
+          Object.hasOwn(locationNames, save.checkpoint?.place) && save.progress) {
+        saves.push(save);
+      }
+    } catch {
+      // Conserva la ranura si el navegador no puede leer su contenido.
+    }
+  }
+  if (localStorage.getItem(savePrefix + '1') === null) {
+    const progress = readLegacyProgress();
+    if (Object.values(progress).some(Boolean)) {
+      const legacySave = { slot: 1, name: '', savedAt: null, checkpoint: { place: 'street' }, progress };
+      writeSave(legacySave);
+      saves.push(legacySave);
+      nextSlot = Math.max(nextSlot, 2);
+    }
+  }
+  saves.sort((a, b) => (b.savedAt ?? 0) - (a.savedAt ?? 0) || a.slot - b.slot);
+  return { saves, nextSlot };
+}
+
+function saveCurrentGame() {
+  const save = {
+    ...activeSave,
+    savedAt: Date.now(),
+    checkpoint: {
+      place: currentPlace,
+      horizontal: (x + 50) / game.clientWidth,
+      depth: (bridgeMudReturn?.to ?? bridgeDepth) / game.clientHeight,
+      facing
+    },
+    progress: {
+      whalePostcardCollected, quintaPhotoCollected, bridgePostcardCollected, firstLetterSent,
+      returnedFromValparaiso, grandmotherReplyRead, caveBellCollected, brumaBellReturned, brumaMet,
+      tizneResponse, valdiviaTracksFound, valdiviaPassageFound, valdiviaBridgeCrossed, valdiviaFamilyHelped,
+      copoFollowing, motaConversationComplete, tizneConversationComplete, bridgeLogProgress, bridgeMudLearned
+    }
+  };
+  try {
+    writeSave(save);
+    activeSave = save;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function saveAfterMilestone() {
+  if (activeSave) saveCurrentGame();
+}
+
+function showMenu(view, title) {
+  for (const panel of [mainMenu, continueMenu, newGameForm, pauseMenu, activeSaveMenu, travelMapMenu, travelItemsMenu, exitConfirmMenu, exitDoneMenu]) {
+    panel.hidden = panel !== view;
+  }
+  travelMenuTabs.hidden = true;
+  travelMenuBack.hidden = true;
+  gameMenu.dataset.mode = view === pauseMenu ? 'pause' : 'title';
+  gameMenuHeading.textContent = title;
+  gameMenuSubtitle.hidden = view !== mainMenu;
+  menuStatus.textContent = '';
+  menuKeys.textContent = view === exitDoneMenu ? '' : view === mainMenu
+    ? '↑ ↓ Elegir · Enter Aceptar' : '↑ ↓ Elegir · Enter Aceptar · Esc Volver';
+}
+
+function showMainMenu() {
+  showMenu(mainMenu, 'Kuro');
+  try {
+    const { saves } = listSaves();
+    continueGame.disabled = saves.length === 0;
+  } catch {
+    continueGame.disabled = true;
+    menuStatus.textContent = 'El navegador no permite leer las partidas guardadas.';
+  }
+  (continueGame.disabled ? newGame : continueGame).focus();
+}
+
+function startSavedGame(save) {
+  activeSave = save;
+  applySavedProgress(save.progress);
+  if (save.checkpoint.horizontal !== undefined || save.checkpoint.place !== 'street') {
+    changeLocation(save.checkpoint.place, 'default', save.checkpoint);
+  }
+  gameMenu.close();
+  pauseGame.hidden = false;
+  game.focus();
+}
+
+function showPauseMenu() {
+  showMenu(pauseMenu, 'Partida en pausa');
+  resumeGame.focus();
+}
+
+function openPauseMenu() {
+  if (!activeSave || transitioning || gameMenu.open || !trainRide.hidden) return;
+  keys.clear();
+  showPauseMenu();
+  gameMenu.showModal();
+}
+
+function resumePlaying() {
+  gameMenu.close();
+  game.focus();
+}
+
+function saveDisplayName(save) {
+  return save.name ? `Partida ${save.slot} · ${save.name}` : `Partida ${save.slot}`;
+}
+
+function describeSave(save) {
+  const date = Number.isFinite(save.savedAt) ? saveDateFormat.format(save.savedAt) : 'Progreso anterior';
+  return `${locationNames[save.checkpoint.place]} · ${date}`;
+}
+
+function renderSaveList(list, saves, activate = null) {
+  list.replaceChildren();
+  saves.forEach((save, index) => {
+    const row = document.createElement('li');
+    const card = document.createElement(activate ? 'button' : 'div');
+    const title = document.createElement('strong');
+    const details = document.createElement('span');
+    title.textContent = saveDisplayName(save);
+    details.textContent = describeSave(save);
+    card.className = 'save-card';
+    if (activate) {
+      card.type = 'button';
+      card.classList.toggle('latest-save', index === 0);
+      card.addEventListener('click', () => activate(save));
+    }
+    card.append(title, details);
+    row.append(card);
+    list.append(row);
+  });
+}
+
+function showSavedGamesMenu() {
+  showMenu(continueMenu, 'Continuar partida');
+  savedGamesList.replaceChildren();
+  try {
+    const { saves } = listSaves();
+    renderSaveList(savedGamesList, saves, startSavedGame);
+    if (!saves.length) menuStatus.textContent = 'Aún no hay partidas guardadas.';
+  } catch {
+    menuStatus.textContent = 'No se pudieron cargar las partidas.';
+  }
+  (savedGamesList.querySelector('button') ?? continueMenu.querySelector('button:not([hidden])')).focus();
+}
+
+function showTravelSaves() {
+  showMenu(activeSaveMenu, travelMenuTitle);
+  travelSavesSummary.replaceChildren();
+  emptySavedGames.hidden = true;
+  try {
+    const saves = activeSave ? [activeSave] : listSaves().saves;
+    renderSaveList(travelSavesSummary, saves);
+    emptySavedGames.hidden = saves.length > 0;
+  } catch {
+    menuStatus.textContent = 'No se pudo leer el progreso guardado.';
+  }
+}
+
+function showNewGameMenu() {
+  showMenu(newGameForm, 'Nueva partida');
+  saveName.value = '';
+  try {
+    saveName.placeholder = `Partida ${listSaves().nextSlot}`;
+  } catch {
+    saveName.placeholder = '';
+  }
+  saveName.focus();
+}
+
+function showGameHub() {
+  selectTravelTab('saves');
+}
+
+function drawInventory(progress) {
+  const hasBell = Boolean(progress?.caveBellCollected);
+  inventoryBell.hidden = !hasBell;
+  inventoryBell.open = false;
+  inventoryNotebook.hidden = !progress;
+  inventoryNotebook.open = false;
+  openAlbumFromItems.hidden = !activeSave;
+  inventoryEmpty.hidden = Boolean(progress);
+  if (progress) {
+    const memories = unlockedAlbumPages(progress).length;
+    inventoryNotebookDescription.textContent = memories
+      ? `Fotos y postales reunidas en esta partida: ${memories}.`
+      : 'Todavía no tiene fotos ni postales.';
+  }
+  inventoryBellDescription.textContent = progress?.brumaBellReturned
+    ? 'Devuelto a Doña Bruma. Kuro conserva el doble salto.'
+    : 'Encontrado en la Cueva del Chivato. Permite saltar otra vez en el aire.';
+}
+
+function showInventory() {
+  showMenu(travelItemsMenu, travelMenuTitle);
+  inventorySaveRow.hidden = true;
+  if (activeSave) {
+    drawInventory({ ...albumProgress(), caveBellCollected, brumaBellReturned });
+    return;
+  }
+  drawInventory();
+  try {
+    const { saves } = listSaves();
+    inventorySave.replaceChildren();
+    for (const save of saves) {
+      const option = new Option(saveDisplayName(save), String(save.slot));
+      inventorySave.append(option);
+    }
+    inventorySaveRow.hidden = saves.length === 0;
+    inventoryEmpty.textContent = 'Aún no hay partidas guardadas.';
+    drawInventory(saves[0]?.progress);
+  } catch {
+    menuStatus.textContent = 'No se pudo leer el inventario.';
+  }
+}
+
+function selectTravelTab(tab) {
+  if (tab === 'map') showMenu(travelMapMenu, travelMenuTitle);
+  else if (tab === 'items') showInventory();
+  else showTravelSaves();
+
+  travelTabButtons.forEach(button => {
+    const selected = button.dataset.travelTab === tab;
+    button.setAttribute('aria-selected', String(selected));
+    button.tabIndex = selected ? 0 : -1;
+  });
+  travelMenuBack.textContent = activeSave ? 'Volver a la pausa' : 'Volver al menú principal';
+  travelMenuBack.hidden = false;
+  travelMenuTabs.hidden = false;
+  menuKeys.textContent = '← → Pestañas · ↑ ↓ Elegir · Enter Aceptar · Esc Volver';
+  travelTabButtons.find(button => button.dataset.travelTab === tab).focus();
+}
+
+function goBackInMenu() {
+  const fromCuaderno = !travelMenuTabs.hidden;
+  const fromNewGame = !newGameForm.hidden;
+  if (activeSave && fromCuaderno) {
+    showPauseMenu();
+    openTravelFromPause.focus();
+    return;
+  }
+  showMainMenu();
+  if (fromCuaderno) openGameMenu.focus();
+  else if (fromNewGame) newGame.focus();
+}
+
+function exitGame(saveBeforeExit) {
+  if (saveBeforeExit && !saveCurrentGame()) {
+    menuStatus.textContent = 'No se pudo guardar la partida.';
+    return;
+  }
+  showMenu(exitDoneMenu, 'Sesión terminada');
+  if (saveBeforeExit) menuStatus.textContent = 'Partida guardada.';
+  document.querySelector('#restart-after-exit').focus();
+  window.close();
+}
+
+function confirmGameExit() {
+  if (!activeSave) {
+    exitGame(false);
+    return;
+  }
+  showMenu(exitConfirmMenu, 'Salir del juego');
+  document.querySelector('#exit-save-name').textContent = `¿Guardar los últimos cambios en ${saveDisplayName(activeSave)}?`;
+  saveAndCloseGame.focus();
+}
+
+continueGame.addEventListener('click', showSavedGamesMenu);
+openGameMenu.addEventListener('click', showGameHub);
+newGame.addEventListener('click', showNewGameMenu);
+openTravelFromPause.addEventListener('click', showGameHub);
+travelTabButtons.forEach(button => button.addEventListener('click', () => selectTravelTab(button.dataset.travelTab)));
+openMapFromMenu.addEventListener('click', () => {
+  gameMenu.close();
+  openWorldMap(true);
+});
+openAlbumFromItems.addEventListener('click', () => {
+  if (!activeSave) return;
+  albumOpenedFromItems = true;
+  gameMenu.close();
+  openAlbum();
+});
+inventorySave.addEventListener('change', () => {
+  try {
+    const { saves } = listSaves();
+    drawInventory(saves.find(save => save.slot === Number(inventorySave.value))?.progress);
+  } catch {
+    drawInventory();
+    menuStatus.textContent = 'No se pudo leer el inventario.';
+  }
+});
+
+newGameForm.addEventListener('submit', (event) => {
+  event.preventDefault();
+  try {
+    const { nextSlot } = listSaves();
+    const save = {
+      slot: nextSlot,
+      name: saveName.value.trim(),
+      savedAt: Date.now(),
+      checkpoint: { place: 'street' },
+      progress: {}
+    };
+    writeSave(save);
+    startSavedGame(save);
+  } catch {
+    menuStatus.textContent = 'No se pudo crear la partida. Revisa si el navegador permite guardar datos.';
+  }
+});
+
+gameMenu.querySelectorAll('[data-menu-back]').forEach(button => button.addEventListener('click', goBackInMenu));
+gameMenu.querySelectorAll('[data-game-exit]').forEach(button => button.addEventListener('click', confirmGameExit));
+saveAndCloseGame.addEventListener('click', () => exitGame(true));
+document.querySelector('#close-without-saving').addEventListener('click', () => exitGame(false));
+document.querySelector('#cancel-game-exit').addEventListener('click', showPauseMenu);
+document.querySelector('#restart-after-exit').addEventListener('click', () => window.location.reload());
+pauseGame.addEventListener('click', openPauseMenu);
+resumeGame.addEventListener('click', resumePlaying);
+function saveFromMenu() {
+  menuStatus.textContent = saveCurrentGame() ? 'Partida guardada.' : 'No se pudo guardar la partida.';
+}
+document.querySelector('#save-game').addEventListener('click', saveFromMenu);
+document.querySelector('#save-and-exit').addEventListener('click', () => {
+  if (!saveCurrentGame()) {
+    menuStatus.textContent = 'No se pudo guardar la partida.';
+    return;
+  }
+  window.location.reload();
+});
+gameMenu.addEventListener('keydown', event => {
+  if (event.altKey || event.ctrlKey || event.metaKey || event.defaultPrevented) return;
+  const tabIndex = travelTabButtons.indexOf(event.target);
+  if (tabIndex !== -1 && ['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+    event.preventDefault();
+    let next = tabIndex + (event.key === 'ArrowLeft' ? -1 : 1);
+    if (event.key === 'Home') next = 0;
+    if (event.key === 'End') next = travelTabButtons.length - 1;
+    const tab = travelTabButtons[(next + travelTabButtons.length) % travelTabButtons.length];
+    selectTravelTab(tab.dataset.travelTab);
+    return;
+  }
+  if (!['ArrowUp', 'ArrowDown'].includes(event.key) || event.target.matches('input, select, textarea')) return;
+  const currentPanel = gameMenu.querySelector('.game-menu-view:not([hidden])');
+  const controls = [...currentPanel.querySelectorAll('button, input, select, summary')].filter(control =>
+    !control.disabled && control.getClientRects().length &&
+    (control.matches('summary') || !control.closest('details:not([open])')));
+  if (!travelMenuTabs.hidden) {
+    controls.unshift(travelMenuTabs.querySelector('[aria-selected="true"]'));
+    controls.push(travelMenuBack);
+  }
+  if (!controls.length) return;
+  event.preventDefault();
+  const delta = event.key === 'ArrowDown' ? 1 : -1;
+  const current = controls.indexOf(event.target);
+  const next = current === -1 ? (delta === 1 ? 0 : controls.length - 1) : current + delta;
+  controls[(next + controls.length) % controls.length].focus();
+});
+gameMenu.addEventListener('cancel', (event) => {
+  event.preventDefault();
+  if (!exitDoneMenu.hidden) return;
+  if (!exitConfirmMenu.hidden) showPauseMenu();
+  else if (activeSave && !pauseMenu.hidden) resumePlaying();
+  else if (mainMenu.hidden) goBackInMenu();
+});
+
 requestAnimationFrame(loop);
 
-if (whalePostcardCollected) scene.classList.add('postcard-collected');
-if (quintaPhotoCollected) scene.classList.add('quinta-photo-collected');
-if (bridgePostcardCollected) scene.classList.add('bridge-postcard-collected');
-if (firstLetterSent) scene.classList.add('letter-sent');
-if (tizneResponse) scene.classList.add('valparaiso-complete');
-renderAlbum();
-
-// Vista directa para revisar escenas durante el desarrollo. No afecta el juego normal.
+// Las vistas de desarrollo usan el progreso anterior sin modificar partidas.
 const previewParams = new URLSearchParams(window.location.search);
+if (previewParams.size > 0) {
+  try {
+    applySavedProgress(readLegacyProgress());
+  } catch {
+    applySavedProgress({});
+  }
+} else {
+  if (window.location.hash === '#menu') {
+    window.history.replaceState(null, '', window.location.href.split('#')[0]);
+    showGameHub();
+  } else {
+    showMainMenu();
+  }
+  gameMenu.showModal();
+}
+
 const requestedPreviewPlace = previewParams.get('preview');
 const previewPlace = requestedPreviewPlace === 'sotomayor' ? 'valparaiso' : ['plaza', 'quinta'].includes(requestedPreviewPlace) ? 'street' : requestedPreviewPlace;
 if (['street', 'house', 'plaza', 'quinta', 'museum', 'station', 'valparaiso', 'valdivia', 'bridge', 'cave'].includes(previewPlace)) {
@@ -2490,6 +3295,7 @@ if (['street', 'house', 'plaza', 'quinta', 'museum', 'station', 'valparaiso', 'v
 }
 if (previewParams.get('postcard') === 'collected') whalePostcardCollected = true;
 if (previewParams.get('photo') === 'collected') quintaPhotoCollected = true;
+if (previewPlace === 'station' && previewParams.get('letter') === 'unsent') firstLetterSent = false;
 if (previewParams.get('bell') === 'collected') caveBellCollected = true;
 if (previewParams.get('bell') === 'missing') caveBellCollected = false;
 if (previewParams.get('bell') === 'unlock') {
